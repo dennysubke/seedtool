@@ -197,6 +197,14 @@ npm run build
 
 The final `index.html` will be generated in the `dist` directory.
 
+## Local HTML Download
+
+Seedtool can also be used without Docker. Download the standalone [`index.html`](https://raw.githubusercontent.com/dennysubke/seedtool/main/dist/index.html) file and open it locally in your browser.
+
+To save the file, right-click the link and choose **Save link as...**.
+
+> For real Bitcoin seed phrases, only use this tool on a trusted offline machine.
+
 ## Attribution
 
 This project is based on the original Bitcoin Seed Tool by BitcoinQnA and contributors.
