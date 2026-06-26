@@ -197,44 +197,6 @@ npm run build
 
 The final `index.html` will be generated in the `dist` directory.
 
-## Git workflow
-
-To build and push changes with the existing project script:
-
-```bash
-MSG="Added this awesome new feature" npm run git
-```
-
-## Docker image publishing
-
-This repository can publish Docker images automatically via GitHub Actions.
-
-The Docker image is built from:
-
-```text
-dist/index.html
-```
-
-and served with Nginx on container port:
-
-```text
-8080
-```
-
-Published images:
-
-```text
-dennysubke/seedtool
-ghcr.io/dennysubke/seedtool
-```
-
-Supported platforms:
-
-```text
-linux/amd64
-linux/arm64
-```
-
 ## Attribution
 
 This project is based on the original Bitcoin Seed Tool by BitcoinQnA and contributors.
