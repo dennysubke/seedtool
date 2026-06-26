@@ -67,13 +67,6 @@ Open:
 http://localhost:8080
 ```
 
-### Available tags
-
-```text
-latest
-2.3.0
-```
-
 ### Docker Compose
 
 Create a `docker-compose.yml`:
