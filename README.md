@@ -40,14 +40,14 @@ Run the container:
 ```bash
 docker run -d \
   --name seedtool \
-  -p 8280:8080 \
+  -p 8080:8080 \
   dennysubke/seedtool:2.3.0
 ```
 
 Open the app in your browser:
 
 ```text
-http://localhost:8280
+http://localhost:8080
 ```
 
 ### GitHub Container Registry
@@ -57,14 +57,14 @@ Alternatively, you can use the GHCR image:
 ```bash
 docker run -d \
   --name seedtool \
-  -p 8280:8080 \
+  -p 8080:8080 \
   ghcr.io/dennysubke/seedtool:2.3.0
 ```
 
 Open:
 
 ```text
-http://localhost:8280
+http://localhost:8080
 ```
 
 ### Available tags
@@ -85,7 +85,7 @@ services:
     container_name: seedtool
     restart: unless-stopped
     ports:
-      - "8280:8080"
+      - "8080:8080"
 ```
 
 Start the container:
@@ -97,7 +97,7 @@ docker compose up -d
 Open:
 
 ```text
-http://localhost:8280
+http://localhost:8080
 ```
 
 Stop the container:
@@ -117,7 +117,7 @@ services:
     container_name: seedtool
     restart: unless-stopped
     ports:
-      - "8280:8080"
+      - "8080:8080"
 ```
 
 ## Build locally
@@ -133,14 +133,14 @@ Run it:
 ```bash
 docker run -d \
   --name seedtool \
-  -p 8280:8080 \
+  -p 8080:8080 \
   seedtool:local
 ```
 
 Open:
 
 ```text
-http://localhost:8280
+http://localhost:8080
 ```
 
 ## Development
