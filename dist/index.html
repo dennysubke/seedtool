@@ -197635,16 +197635,14 @@ const sleep = (time = 0) => new Promise((r) => setTimeout(r, time));
 const thisBrowserIsShit = () => {
   let isShit = false;
   if (
-    // check crypto
+    // secure randomness is required, but Web Crypto's subtle API
+    // may be unavailable on local HTTP/LAN URLs such as Umbrel app_proxy.
     !window.crypto ||
     !window.crypto.getRandomValues ||
-    !window.crypto.subtle ||
-    // check copy to clipboard
-    !navigator.clipboard ||
     // template check
     !('content' in document.createElement('template')) ||
     // TextEncoder
-    !TextEncoder ||
+    typeof TextEncoder === 'undefined' ||
     // check String.prototype.normalize
     !String.prototype.normalize
   )
@@ -198376,11 +198374,38 @@ const addXorSeed = async (event) => {
 const bytesToBinary = (byteArray) =>
   byteArray.map((x) => x.toString(2).padStart(8, '0')).join('');
 
+const seedtoolSha256Bytes = async (data) => {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+
+  if (window.crypto && window.crypto.subtle) {
+    return new Uint8Array(await window.crypto.subtle.digest('SHA-256', bytes));
+  }
+
+  if (window.bitcoin && window.bitcoin.crypto && window.bitcoin.crypto.sha256) {
+    return new Uint8Array(window.bitcoin.crypto.sha256(bytes));
+  }
+
+  throw new Error('SHA-256 is not available in this browser context');
+};
+
+const seedtoolDigestBytes = async (algo, data) => {
+  if (window.crypto && window.crypto.subtle) {
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    return new Uint8Array(await window.crypto.subtle.digest(algo, bytes));
+  }
+
+  if (algo === 'SHA-256') {
+    return seedtoolSha256Bytes(data);
+  }
+
+  throw new Error(`${algo} is not available in this browser context`);
+};
+
 const deriveChecksumBits = async (entropyBuffer) => {
   const ENT = entropyBuffer.length * 8;
   const CS = ENT / 32;
-  const hash = await crypto.subtle.digest('SHA-256', entropyBuffer);
-  return bytesToBinary([...new Uint8Array(hash)]).slice(0, CS);
+  const hash = await seedtoolSha256Bytes(entropyBuffer);
+  return bytesToBinary([...hash]).slice(0, CS);
 };
 
 const showXorQr = (ev) => {
@@ -199057,15 +199082,38 @@ window.onclick = function (event) {
  * @param {string} text text to copy
  */
 function copyTextToClipboard(text) {
-  navigator.clipboard.writeText(text).then(
-    function () {
-      toast('Copied to clipboard');
-    },
-    function (err) {
-      console.error('Async: Could not copy text: ', err);
-      toast('ERROR: Unable to copy to clipboard');
-    }
-  );
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(
+      function () {
+        toast('Copied to clipboard');
+      },
+      function (err) {
+        console.error('Async: Could not copy text: ', err);
+        toast('ERROR: Unable to copy to clipboard');
+      }
+    );
+    return;
+  }
+
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.setAttribute('readonly', '');
+  textArea.style.position = 'fixed';
+  textArea.style.top = '-1000px';
+  textArea.style.left = '-1000px';
+
+  document.body.appendChild(textArea);
+  textArea.select();
+
+  try {
+    const copied = document.execCommand('copy');
+    toast(copied ? 'Copied to clipboard' : 'ERROR: Unable to copy to clipboard');
+  } catch (err) {
+    console.error('Fallback: Could not copy text: ', err);
+    toast('ERROR: Unable to copy to clipboard');
+  } finally {
+    document.body.removeChild(textArea);
+  }
 }
 /**
  * Displays a pop-up message like a notification
@@ -199670,8 +199718,7 @@ const calculateEntropy = async () => {
  */
 const hash = async (text, algo = 'SHA-256') => {
   const msgUint8 = new TextEncoder().encode(text);
-  const hashBuffer = await crypto.subtle.digest(algo, msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashArray = Array.from(await seedtoolDigestBytes(algo, msgUint8));
   const hex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
   return hex;
 };
@@ -199969,8 +200016,7 @@ const writeSplitPhrase = async () => {
   const phrase = getPhrase();
   const wordCount = phrase.split(/\s/g).length;
   const msgUint8 = new TextEncoder().encode(phrase);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashArray = Array.from(await seedtoolSha256Bytes(msgUint8));
   const left = [];
   for (let i = 0; i < wordCount; i++) {
     left.push(i);
@@ -200191,8 +200237,8 @@ const otp = {
       endianness(keyList8, 2);
     }
     const keyArray = new Uint8Array([0, numberOfWords, ...keyList8]);
-    const hash = await crypto.subtle.digest('SHA-256', keyArray);
-    const checksum = new Uint8Array(hash.slice(0, 4));
+    const hash = await seedtoolSha256Bytes(keyArray);
+    const checksum = hash.slice(0, 4);
     const full = new Uint8Array(keyArray.length + checksum.length);
     full.set(keyArray, 0);
     full.set(checksum, keyArray.length);
@@ -200272,8 +200318,8 @@ const otp = {
     const divider = keyArray.length - 4;
     const keyChecksum = keyArray.slice(divider);
     const keyPayload = new Uint8Array(keyArray.slice(0, divider));
-    const hash = await crypto.subtle.digest('SHA-256', keyPayload);
-    const checksum = new Uint8Array(hash.slice(0, 4));
+    const hash = await seedtoolSha256Bytes(keyPayload);
+    const checksum = hash.slice(0, 4);
     if (keyChecksum.toString() !== checksum.toString()) {
       console.error('Checksum does not match');
       return false;
@@ -201873,7 +201919,7 @@ function swap(bytes, offset, index) {
       resultsList.querySelectorAll('[data-copy]').forEach((btn) => {
         btn.addEventListener('click', () => {
           const text = decodeURIComponent(btn.dataset.copy);
-          if (navigator.clipboard) navigator.clipboard.writeText(text);
+          copyTextToClipboard(text);
           btn.textContent = 'Copied ✓';
           setTimeout(() => { btn.textContent = 'Copy mnemonic'; }, 1500);
         });
@@ -202150,7 +202196,7 @@ function swap(bytes, offset, index) {
         sharesList.querySelectorAll('[data-copy]').forEach((btn) => {
           btn.addEventListener('click', () => {
             const text = decodeURIComponent(btn.dataset.copy);
-            if (navigator.clipboard) navigator.clipboard.writeText(text);
+            copyTextToClipboard(text);
             btn.textContent = 'Copied ✓';
             setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
           });
@@ -203206,7 +203252,7 @@ function swap(bytes, offset, index) {
         card.style.animationDelay = `${i * 40}ms`;
         card.innerHTML = `<span class="seed-hero__word-num">${i + 1}</span><span class="seed-hero__word-text">${w}</span>`;
         card.addEventListener('click', () => {
-          if (navigator.clipboard) navigator.clipboard.writeText(w).catch(() => {});
+          copyTextToClipboard(w);
           card.classList.add('is-copied');
           setTimeout(() => card.classList.remove('is-copied'), 900);
         });
@@ -203281,7 +203327,7 @@ function swap(bytes, offset, index) {
       if (address) {
         addressEl.textContent = address;
         addressEl.onclick = () => {
-          if (navigator.clipboard) navigator.clipboard.writeText(address).catch(() => {});
+          copyTextToClipboard(address);
           addressEl.classList.add('is-copied');
           setTimeout(() => addressEl.classList.remove('is-copied'), 900);
         };
